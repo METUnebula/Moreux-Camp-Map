@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moreux Camp Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: habitat planning console. Map left, mission panel right; profile, close-up, safety and data under the map. Single dark theme by choice. */
+  color-scheme: dark;
+  --bg:#16130f;
+  --panel:#201c17;
+  --raise:#2a251f;
+  --line:#3d352c;
+  --ink:#ede5d8;
+  --muted:#a69b8d;
+  --accent:#86b9e0;    /* Martian sunset blue */
+  --ok:#8fbf8f;
+  --warn:#e6a640;
+  --crit:#e5604f;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"Barlow","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1500px;margin:0 auto;padding:20px 20px 40px;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 24px;border-bottom:1px solid var(--line);padding-bottom:12px}
+h1{font:600 30px/1.1 var(--f-display);letter-spacing:.02em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;max-width:72ch}
+.hright{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.coords{font:500 13px/1.4 var(--f-mono);color:var(--accent);text-align:right;font-variant-numeric:tabular-nums}
+.coords span{color:var(--muted)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px}
+h2{font:600 15px/1.2 var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lbl{font:500 12px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.seg button{background:transparent;color:var(--ink);border:0;border-right:1px solid var(--line);padding:6px 10px;font:500 14px/1.2 var(--f-body);cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#10161c;font-weight:600}
+.seg button:hover:not([aria-pressed="true"]){background:var(--raise)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=range]{accent-color:var(--accent);width:110px}
+.num{font:500 13px/1 var(--f-mono);font-variant-numeric:tabular-nums;min-width:4ch}
+.mapwrap{position:relative}
+.viewport{position:relative;aspect-ratio:1852/858;overflow:hidden;border:1px solid var(--line);border-radius:6px;background:#000;cursor:crosshair;user-select:none}
+.viewport.zoomed{touch-action:none;cursor:grab}
+.viewport.drag{cursor:grabbing}
+.stage{position:absolute;left:0;top:0;width:1852px;height:858px;transform-origin:0 0}
+.stage img{display:block;pointer-events:none;max-width:none}
+.stage img.reg{position:absolute;left:0;top:0;width:1852px;height:858px}
+.stage .inset{position:absolute;overflow:hidden}
+.stage .inset img{position:absolute}
+.stage svg{position:absolute;left:0;top:0;width:1852px;height:858px;overflow:visible}
+.hud{position:absolute;display:flex;gap:6px;pointer-events:none}
+.hud.tr{top:10px;right:10px;flex-direction:column;align-items:flex-end}
+.hud.bl{left:10px;bottom:10px;align-items:flex-end;gap:12px}
+.hud button{pointer-events:auto;background:rgba(22,19,15,.86);color:var(--ink);border:1px solid var(--line);border-radius:4px;font:600 14px/1 var(--f-display);letter-spacing:.06em;padding:7px 10px;cursor:pointer;min-width:34px}
+.hud button:hover{border-color:var(--accent)}
+.zoomrow{display:flex;gap:6px}
+.scale{background:rgba(22,19,15,.86);border:1px solid var(--line);border-radius:4px;padding:5px 8px;font:500 11px/1.2 var(--f-mono)}
+.scale i{display:block;height:5px;border:1px solid var(--ink);border-top:0;margin-top:3px}
+.north{background:rgba(22,19,15,.86);border:1px solid var(--line);border-radius:4px;padding:4px 7px;font:600 12px/1.1 var(--f-display);text-align:center}
+.readout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.readout div{background:var(--panel);padding:9px 12px;min-width:0}
+.readout b{display:block;font:500 11px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.readout span{font:500 14px/1.3 var(--f-mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.readout small{display:block;color:var(--muted);font:400 12px/1.3 var(--f-body);margin-top:2px}
+.pill{display:inline-block;border-radius:999px;padding:1px 8px;font:600 12px/1.5 var(--f-display);letter-spacing:.05em;text-transform:uppercase;border:1px solid currentColor;white-space:nowrap}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.crit{color:var(--crit)}
+.facts{display:grid;gap:8px;margin:0}
+.facts div{display:grid;grid-template-columns:112px 1fr;gap:10px;align-items:baseline;border-top:1px solid var(--line);padding-top:8px}
+.facts dt{font:600 13px/1.2 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.facts dd{margin:0}
+.facts dd b{font:500 13px/1 var(--f-mono)}
+.toggles{display:grid;gap:2px}
+.toggles label{display:grid;grid-template-columns:18px 20px 1fr auto;gap:8px;align-items:center;padding:5px 4px;border-radius:4px;cursor:pointer}
+.toggles label:hover{background:var(--raise)}
+.toggles input{accent-color:var(--accent);margin:0;width:16px;height:16px}
+.toggles .n{font:500 13px/1 var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.routes{display:grid;gap:8px}
+.route{display:grid;grid-template-columns:6px 1fr;gap:10px;text-align:left;width:100%;background:var(--raise);border:1px solid var(--line);border-radius:5px;padding:10px 12px 10px 0;color:var(--ink);font:inherit;cursor:pointer}
+.route i{border-radius:0 3px 3px 0}
+.route[aria-pressed="true"]{border-color:var(--accent);background:#263039}
+.route strong{font:600 17px/1.2 var(--f-display);letter-spacing:.02em}
+.route em{font-style:normal;color:var(--muted);display:block;font-size:13px}
+.stats{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font:500 12.5px/1.4 var(--f-mono);font-variant-numeric:tabular-nums}
+.stats span b{color:var(--muted);font-weight:400}
+.stops{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:4px}
+.stops button{display:grid;grid-template-columns:22px 1fr;gap:8px;width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:5px;padding:6px;color:var(--ink);font:400 13.5px/1.35 var(--f-body);cursor:pointer}
+.stops button:hover{background:var(--raise)}
+.stops button[aria-pressed="true"]{border-color:var(--line);background:var(--raise)}
+.stops button > b{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#16130f;font:600 12px/1 var(--f-mono)}
+.stops small{color:var(--muted);display:block}
+.stops small.flag{color:var(--warn)}
+.notes{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+.notes li{display:grid;grid-template-columns:4px 1fr;gap:10px;font-size:14px;line-height:1.4}
+.notes li::before{content:"";border-radius:2px;background:var(--warn)}
+.notes li.c::before{background:var(--crit)}
+.notes li.i::before{background:var(--accent)}
+.notes li.g::before{background:var(--ok)}
+.notes li.f::before{background:var(--muted)}
+.fine{color:var(--muted);font-size:13px;line-height:1.45;margin:8px 0 0}
+.profhead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;align-items:baseline}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px}
+#prof{width:100%;height:auto;display:block;margin-top:6px}
+#prof text{font:11px var(--f-mono);fill:var(--muted)}
+.mk{cursor:pointer}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;align-items:start}
+.chipgrid{display:grid;grid-template-columns:minmax(0,440px) minmax(220px,1fr);gap:16px;align-items:start}
+.chipwrap{position:relative;aspect-ratio:1/1;border:1px solid var(--line);border-radius:5px;overflow:hidden;background:#000}
+.chipwrap img{position:absolute;inset:0;width:100%;height:100%;display:block}
+.chipwrap svg{position:absolute;inset:0;width:100%;height:100%}
+.chipinfo h3{font:600 19px/1.2 var(--f-display);letter-spacing:.02em;margin:0 0 4px;text-wrap:balance}
+.chipinfo .where{font:500 12.5px/1.5 var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums}
+.chipinfo p{margin:8px 0 0;font-size:14px;line-height:1.45}
+.chipinfo p.flag{color:var(--warn)}
+.keyrow{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.keyrow svg{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
+.pop{position:absolute;z-index:5;width:310px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 12px 13px;box-shadow:0 10px 28px rgba(0,0,0,.55)}
+.pop[hidden]{display:none}
+.pop h3{font:600 13px/1.2 var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 28px 4px 0}
+.pop .where{font:500 12.5px/1.4 var(--f-mono);font-variant-numeric:tabular-nums}
+.pop .notes{margin-top:10px;gap:8px}
+.pop .notes li{font-size:13.5px}
+.pop .x{position:absolute;top:6px;right:6px;width:26px;height:26px;background:transparent;border:1px solid transparent;border-radius:4px;color:var(--muted);font:500 18px/1 var(--f-body);cursor:pointer}
+.pop .x:hover{color:var(--ink);border-color:var(--line)}
+@media (max-width:1040px){.main{grid-template-columns:1fr}}
+@media (max-width:620px){.readout{grid-template-columns:repeat(2,minmax(0,1fr))}h1{font-size:25px}.hright{align-items:flex-start}.coords{text-align:left}.wrap{padding:16px 16px 32px}.pop{position:static;width:auto;margin-top:8px}.chipgrid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){.stage.anim{transition:transform .35s ease}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 data-t="title"></h1>
+      <p class="sub" data-t="sub"></p>
+    </div>
+    <div class="hright">
+      <div class="seg" id="langSeg" role="group" aria-label="Language / Dil"><button data-v="en">English</button><button data-v="tr">Türkçe</button></div>
+      <div class="coords" id="hc"></div>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="col">
+      <div class="card bar">
+        <div class="grp"><span class="lbl" data-t="base"></span>
+          <div class="seg" id="baseSeg">
+            <button data-v="ctx" data-t="lCtx"></button><button data-v="day" data-t="lDay"></button><button data-v="night" data-t="lNight"></button><button data-v="topo" data-t="lTopo"></button>
+          </div>
+        </div>
+        <div class="grp"><span class="lbl" data-t="overlay"></span>
+          <div class="seg" id="overSeg">
+            <button data-v="none" data-t="lNone"></button><button data-v="ctx" data-t="lCtx"></button><button data-v="day" data-t="lDay"></button><button data-v="night" data-t="lNight"></button><button data-v="topo" data-t="lTopo"></button>
+          </div>
+          <input type="range" id="opacity" min="0" max="100" value="30">
+          <span class="num" id="opv"></span>
+        </div>
+      </div>
+
+      <div class="mapwrap">
+        <div class="viewport" id="vp">
+          <div class="stage" id="stage">
+            <img class="reg" id="rb" alt="">
+            <div class="inset" id="ib"></div>
+            <img class="reg" id="ro" alt="">
+            <div class="inset" id="io"></div>
+            <svg id="ov" viewBox="0 0 1852 858"></svg>
+          </div>
+          <div class="hud tr">
+            <div class="zoomrow"><button id="zin">+</button><button id="zout">−</button></div>
+            <div class="zoomrow"><button id="vCamp" data-t="vCamp"></button><button id="vCrater" data-t="vCrater"></button><button id="vAll" data-t="vAll"></button></div>
+          </div>
+          <div class="hud bl">
+            <div class="north"><span data-t="N"></span><br>▲</div>
+            <div class="scale"><span id="scl"></span><i id="sclbar"></i></div>
+          </div>
+        </div>
+        <div class="pop" id="pop" hidden role="dialog">
+          <button class="x" id="popx">×</button>
+          <h3 id="popT"></h3>
+          <div class="where" id="popW"></div>
+          <ul class="notes" id="popN"></ul>
+        </div>
+      </div>
+
+      <div class="readout">
+        <div><b data-t="rPosH"></b><span id="rPos"></span><small id="rDist"></small></div>
+        <div><b data-t="rElH"></b><span id="rEl">–</span><small id="rSl"></small></div>
+        <div><b data-t="rThH"></b><span id="rTh">–</span><small id="rThT"></small></div>
+        <div><b data-t="rClsH"></b><span id="rCls">–</span><small data-t="rClsS"></small></div>
+      </div>
+
+      <div class="card">
+        <div class="profhead">
+          <h2 id="profTitle" style="margin:0"></h2>
+          <div class="legend">
+            <span><i style="background:var(--ink)"></i><span data-t="pgElev"></span></span>
+            <span><i style="background:var(--accent)"></i><span data-t="pgTherm"></span></span>
+            <span><i style="background:var(--crit);height:8px;opacity:.45"></i><span data-t="pgSteep"></span></span>
+          </div>
+        </div>
+        <svg id="prof" viewBox="0 0 900 200" role="img"></svg>
+        <p class="fine" data-t="profNote"></p>
+      </div>
+
+      <div class="card">
+        <h2 data-t="chipH"></h2>
+        <div class="chipgrid">
+          <div class="chipwrap"><img id="chipImg" alt=""><svg id="chipOv" viewBox="0 0 1000 1000"></svg></div>
+          <div class="chipinfo">
+            <h3 id="chipT"></h3>
+            <div class="where" id="chipW"></div>
+            <p id="chipN"></p>
+            <p id="chipWalk"></p>
+            <div class="keyrow" id="chipKey"></div>
+            <p class="fine" id="chipCap"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pair">
+        <div class="card">
+          <h2 data-t="safeH"></h2>
+          <p class="fine" style="margin:0 0 10px" data-t="safeIntro"></p>
+          <ul class="notes" id="safeList"></ul>
+        </div>
+        <div class="card">
+          <h2 data-t="dataH"></h2>
+          <div id="dataBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h2 data-t="factsH"></h2>
+        <dl class="facts" id="facts"></dl>
+      </div>
+      <div class="card">
+        <h2 data-t="layersH"></h2>
+        <div class="toggles" id="tg"></div>
+        <p class="fine" data-t="layersNote"></p>
+      </div>
+      <div class="card">
+        <h2 data-t="routesH"></h2>
+        <div class="grp" style="margin-bottom:10px">
+          <span class="lbl" data-t="speed"></span>
+          <input type="range" id="spd" min="4" max="20" value="10">
+          <span class="num" id="spdv"></span>
+        </div>
+        <div class="routes" id="routes"></div>
+        <ol class="stops" id="stops"></ol>
+        <p class="fine" data-t="routesNote"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+const D = window.MAP_DATA, W = D.W, H = D.H, KLAT = 59.2747, NS = 'http://www.w3.org/2000/svg', R = D.inset;
+const $ = id => document.getElementById(id);
+let LANG = document.documentElement.lang === 'tr' ? 'tr' : 'en';
+try { const s = localStorage.getItem('moreux-lang'); if (s === 'en' || s === 'tr') LANG = s; } catch (e) {}
+
+/* ---------- text ---------- */
+const L = {
+en: {
+  title:'Moreux Camp Map',
+  sub:'Protonilus Mensae, Mars. A Marswalk planning display built directly from NASA Mars Trek data services: CTX optical imagery, THEMIS thermal infrared and MOLA–HRSC topography, with the ice, mineral and dune catalogues.',
+  hcSub:'Moreux crater floor · {e} m',
+  camp:'CAMP', N:'N', E:'E', base:'Base', overlay:'Overlay', lCtx:'Optical', lDay:'Day IR', lNight:'Thermal', lTopo:'Topographic', lNone:'None',
+  vCamp:'CAMP', vCrater:'MOREUX', vAll:'REGION', scaleNS:'N–S',
+  rPosH:'Position', rElH:'Elevation and slope', rThH:'Thermal (night)', rClsH:'Ground reading', rClsS:'Click the map for safety notes',
+  campSite:'Camp site', fromCamp:'{d} km from camp', outside:'Outside the detailed data area', bright:'brightness {t}/100',
+  slFlat:'flat', slMod:'moderate', slSteep:'steep', slNogo:'no-go', thCold:'cold at night', thMed:'medium', thWarm:'warm at night',
+  gDune:'Mapped dune field. No-go for the rover', gNogo:'Very steep. No-go for the rover', gSteep:'Steep. The rover parks; continue on foot', gDust:'Dust or loose fines likely', gFirm:'Flat, firm ground likely', gPass:'Passable ground',
+  profT:'Route profile', pgElev:'Elevation (m)', pgTherm:'Night thermal brightness (0–100)', pgSteep:'Slope above 15°',
+  profNote:'Elevation is from the 200 m MOLA–HRSC elevation model, in metres relative to the Mars datum. Thermal brightness is a relative index from the THEMIS night mosaic, not a temperature.',
+  chipH:'Destination close-up', chipCap:'CTX mosaic at about 10 m/pixel, contrast-stretched. Frame {w} × {h} km, north up.',
+  kTarget:'Target', kPark:'Rover park point', kWalk:'Walk', kRoute:'Rover route', kCamp:'Camp',
+  walkNone:'The rover reaches the target.', walkTxt:'Park {p} m lower; walk {k} km, {g} m climb, slopes up to {s}°.', walkDown:'Walk {k} km, {g} m descent, slopes up to {s}°.',
+  walkFlag:'Too far or too steep for a Marswalk. Sample debris at the slope foot or observe from the park point.',
+  campChipT:'Camp site', campChipN:'Smooth, dark surface with no dune forms at the camp. Individual dunes are visible about 8 km to the northwest. The crater wall foot is at the bottom of the frame.',
+  safeH:'Safety', safeIntro:'Click any point on the map to see which of these notes apply there, in the same colours.',
+  safe:[['c','Red route sections are slopes above 15°. The rover parks short of them and the last stretch is on foot (dotted lines).'],
+        ['c','The pink area is the mapped dune field. It rings the central peak and is open only on the east side, so the Central Peak loop goes around the east.'],
+        ['w','Dark areas in the thermal layer are dust or loose fines that cool quickly at night. Routes avoid them where they can.'],
+        ['w','Two central-peak targets lie 300 to 400 m above their park points on slopes over 15°. They are beyond a Marswalk: sample debris at the slope foot or observe from the rover.'],
+        ['w','The central peak may block line of sight between the stops north of it and camp. Plan a relay or orbital link for the peak loop.'],
+        ['i','On a solar particle storm warning the nearest shelter is the camp. Rings show 25, 50 and 100 km straight-line distance from camp.']],
+  dataH:'Data and limits',
+  data:['<b>Sources, read directly from Mars Trek services.</b> Optical: MRO CTX global mosaic (Caltech Murray Lab), shown at 40 m/pixel and 10 m/pixel in close-ups. Day IR and thermal: Mars Odyssey THEMIS mosaics, 100 m/pixel. Topography, elevation and slope: MGS MOLA and Mars Express HRSC blended elevation model, 200 m/pixel. Dunes: Mars Global Digital Dune Database (Hayward et al. 2007). Glacier-like forms: Souness et al. 2012. Valleys: Fassett et al. 2010. Gullies: Harrison et al. 2015. Hydrous minerals: Carter et al. 2013. Aqueous mineral classes: Ehlmann and Edwards 2014. Exploration zone: NASA 2015 workshop, proposal 1053.',
+        '<b>Limits.</b> Slopes come from a 200 m elevation model, so short steep steps are smoothed out and real slopes can be higher. The dune polygon outlines the whole field; routes treat all of it as closed. Thermal brightness is relative. Outside the dashed Moreux frame the backdrop is the earlier ~1 km/pixel screenshot mosaic and terrain values are not available. Routes are least-cost paths that avoid dunes, penalise slopes above 15° and block slopes above 25°; these limits are planning assumptions, not rover specifications.'],
+  factsH:'Why the camp is here', fOpt:'Optical', fTh:'Thermal', fTopo:'Topographic', fSci:'Science', fEz:'NASA zone',
+  fOptT:d=>`CTX shows a smooth, dark surface with no dune forms at the camp. The nearest mapped dune is <b>${N(d.camp.duneKm,1)} km</b> away.`,
+  fThT:d=>`Night brightness <b>${d.camp.therm}/100</b> within the Moreux area. Ground that stays warm at night is firm or rocky.`,
+  fTopoT:d=>`Elevation <b>${N(d.camp.elev)} m</b>, slope <b>${N(d.camp.slope,1)}°</b>. The crater floor (median ${N(d.floor.elev)} m) is the lowest ground in the mapped area. <span class="pill ok">flat</span>`,
+  fSciT:d=>`South wall glacier fronts start <b>${N(d.camp.kmSouth,0)} km</b> away by route. The mineral detections on the central peak are <b>${N(d.camp.kmMinerals,0)} km</b> away by route, because the dune field blocks the direct line.`,
+  fEzT:d=>`<b>${d.ez.edgeKm} km</b> west of the edge of NASA's ${d.ez.name} exploration zone (proposal ${d.ez.abstract}; ${d.ez.campKm} km to its centre). The zone holds ${d.ez.inside.glf} glacier-like forms but none of the mapped mineral detections, which is why the camp stays in Moreux.`,
+  layersH:'Map layers', layersNote:'Counts are features in the regional frame (35–68° E, 35.5–51° N), read from the Mars Trek feature services.',
+  yGlf:'Glacier-like forms', yGully:'Gullies', yValley:'Supraglacial and proglacial valleys', yHyd:'Hydrous mineral (OMEGA, CRISM)', yAqP:'Aqueous mineral: phyllosilicate', yAqS:'Aqueous mineral: silica',
+  yDune:'Dune field (rover no-go)', yEz:'Exploration zone and regions of interest', yRoutes:'Routes and stops', yRings:'Distance rings from camp', yInset:'Detailed data area', fields:'fields', roi:'regions',
+  routesH:'Rover routes', speed:'Rover speed', kmh:'km/h', hh:'h', climb:'climb', steep:'steep', dunes:'dunes', dose:'dose', multi:'multi-sol', single:'single sol',
+  routesNote:'Time = distance / speed + 1 hour of work per stop; routes over 10 hours are counted as multi-sol (assumption). Dose is a rough estimate from the 0.64 mSv/day average that Curiosity\'s RAD instrument measured on the surface in Gale crater (Hassler et al. 2014); there is no measurement for Moreux.',
+  stopKm:'km {k}', tgt:'target {e} m',
+  popAt:'Safety at this point', popFeat:'Safety at ', close:'Close',
+  nNogo:'Slope above 25°. Closed to the rover.', nSteep:'Slope above 15°. The rover parks short of it; continue on foot or observe from a distance.',
+  nDust:'Dark in the thermal layer: dust or loose fines that cool quickly at night.', nDune:'Mapped dune field. Loose sand can trap the rover; every route goes around it.',
+  nFloor:'Moreux floor outside the mapped dunes. Smaller dunes and sand sheets may be missing from the catalogue; check the CTX layer before driving here.',
+  nLos:'The central peak may block line of sight to camp from here. Plan a relay or orbital link.', nOk:'No slope, dust or dune flag here in the 200 m terrain data.',
+  nOut:'Outside the detailed data area: no slope or thermal reading here.', nEz:'Inside the {n} exploration zone, {d} km from its centre.',
+  nRing:['inside the 25 km ring','between the 25 and 50 km rings','between the 50 and 100 km rings','beyond the 100 km ring'],
+  nInfo:'{d} km straight-line from camp, {r}. On a solar particle storm warning the nearest shelter is the camp.',
+  dGlf:f=>`Length ${N(f.len,1)} km, width ${N(f.wid,1)} km, area ${N(f.area,1)} km², flowing ${comp(f.az)} (${f.az}°).`,
+  dGully:f=>`Setting: ${(GS.en[f.set]||f.set)}. Orientation: ${(GP.en[f.pref]||f.pref)}.`,
+  dValley:()=>'Valley cut by meltwater on or in front of a glacier.', dHyd:f=>`Detected by ${f.inst}.`, dAqP:()=>'Class: phyllosilicate (clay minerals).', dAqS:()=>'Class: silica.',
+  dDune:u=>`Dune field ${u.id}: ${duneType(u.type)} dunes, ${N(u.area)} km², mean dune height ${u.h} m, slip faces toward ${u.sf.map(a=>a+'°').join(', ')}.`,
+  dEz:z=>`Proposed landing site of the ${z.name} exploration zone (NASA 2015 workshop, proposal ${z.abstract}, ${z.proposer}). ${z.campKm} km from camp.`,
+  ezLabel:'EXPLORATION ZONE · 100 KM', ezCentre:'the exploration zone centre', duneLabel:'the dune field', insetLabel:'DETAILED DATA AREA', moreux:'MOREUX CRATER',
+  comp:['north','northeast','east','southeast','south','southwest','west','northwest'],
+  dtype:{B:'barchan',Bd:'barchanoid',D:'dome',L:'linear',S:'star',SS:'sand sheet',T:'transverse',U:'unclassified'}
+},
+tr: {
+  title:'Moreux Kamp Haritası',
+  sub:'Protonilus Mensae, Mars. Doğrudan NASA Mars Trek veri servislerinden kurulan Marswalk planlama ekranı: CTX optik görüntü, THEMIS termal kızılötesi ve MOLA–HRSC topografya; buz, mineral ve kumul kataloglarıyla birlikte.',
+  hcSub:'Moreux krateri tabanı · {e} m',
+  camp:'KAMP', N:'K', E:'D', base:'Altlık', overlay:'Üst katman', lCtx:'Optik', lDay:'Gündüz KÖ', lNight:'Termal', lTopo:'Topografik', lNone:'Yok',
+  vCamp:'KAMP', vCrater:'MOREUX', vAll:'BÖLGE', scaleNS:'K–G',
+  rPosH:'Konum', rElH:'Yükseklik ve eğim', rThH:'Termal (gece)', rClsH:'Zemin yorumu', rClsS:'Güvenlik notları için haritaya tıklayın',
+  campSite:'Kamp noktası', fromCamp:'kampa {d} km', outside:'Ayrıntılı veri alanının dışında', bright:'parlaklık {t}/100',
+  slFlat:'düz', slMod:'orta eğim', slSteep:'dik', slNogo:'geçilmez', thCold:'gece soğuk', thMed:'orta', thWarm:'gece sıcak',
+  gDune:'Haritalanmış kumul alanı. Gezici giremez', gNogo:'Çok dik. Gezici giremez', gSteep:'Dik. Gezici park eder, yaya devam edilir', gDust:'Toz ya da gevşek ince malzeme olası', gFirm:'Düz ve sıkı zemin olası', gPass:'Geçilebilir zemin',
+  profT:'Rota profili', pgElev:'Yükseklik (m)', pgTherm:'Gece termal parlaklık (0–100)', pgSteep:'15° üzeri eğim',
+  profNote:'Yükseklik, 200 m çözünürlüklü MOLA–HRSC yükseklik modelinden, Mars referans düzeyine göre metre cinsindendir. Termal parlaklık THEMIS gece mozaiğinden göreli bir indekstir, sıcaklık değildir.',
+  chipH:'Hedef yakın görüntüsü', chipCap:'CTX mozaiği, yaklaşık 10 m/piksel, kontrastı artırılmış. Çerçeve {w} × {h} km, kuzey yukarıda.',
+  kTarget:'Hedef', kPark:'Gezici park noktası', kWalk:'Yürüyüş', kRoute:'Gezici rotası', kCamp:'Kamp',
+  walkNone:'Gezici hedefe ulaşıyor.', walkTxt:'Park noktası {p} m aşağıda; {k} km yürüyüş, {g} m tırmanış, {s}° eğime kadar.', walkDown:'{k} km yürüyüş, {g} m iniş, {s}° eğime kadar.',
+  walkFlag:'Bir Marswalk için fazla uzak ya da fazla dik. Yamaç eteğindeki döküntüden örnek alın ya da park noktasından gözleyin.',
+  campChipT:'Kamp noktası', campChipN:'Kampta kumul formu olmayan düz, koyu bir yüzey var. Tek tek kumullar yaklaşık 8 km kuzeybatıda seçiliyor. Krater duvarının eteği çerçevenin altında.',
+  safeH:'Güvenlik', safeIntro:'Bu notlardan hangilerinin geçerli olduğunu aynı renklerle görmek için haritada bir noktaya tıklayın.',
+  safe:[['c','Kırmızı rota kesimleri 15° üzeri eğimdir. Gezici bunların önünde park eder, son kısım yaya geçilir (noktalı çizgiler).'],
+        ['c','Pembe alan haritalanmış kumul alanıdır. Merkezi tepeyi çevreler ve yalnızca doğu tarafı açıktır; bu yüzden Merkezi Tepe halkası doğudan dolaşır.'],
+        ['w','Termal katmandaki koyu alanlar gece hızla soğuyan toz ya da gevşek ince malzemedir. Rotalar mümkün olduğunca bunlardan kaçınır.'],
+        ['w','Merkezi tepedeki iki hedef, park noktalarının 300–400 m yukarısında ve 15° üzeri yamaçtadır. Bir Marswalk için fazla: yamaç eteğindeki döküntüden örnek alın ya da geziciden gözleyin.'],
+        ['w','Merkezi tepe, kuzeyindeki duraklarla kamp arasında görüş hattını kesebilir. Tepe halkası için röle ya da yörünge bağlantısı planlayın.'],
+        ['i','Güneş parçacık fırtınası uyarısında en yakın sığınak kamptır. Halkalar kampa kuş uçuşu 25, 50 ve 100 km mesafeyi gösterir.']],
+  dataH:'Veri ve sınırlar',
+  data:['<b>Kaynaklar, doğrudan Mars Trek servislerinden okundu.</b> Optik: MRO CTX küresel mozaiği (Caltech Murray Lab), 40 m/piksel, yakın görüntülerde 10 m/piksel. Gündüz kızılötesi ve termal: Mars Odyssey THEMIS mozaikleri, 100 m/piksel. Topografya, yükseklik ve eğim: MGS MOLA ve Mars Express HRSC harmanlanmış yükseklik modeli, 200 m/piksel. Kumullar: Mars Global Digital Dune Database (Hayward ve ark. 2007). Buzul benzeri formlar: Souness ve ark. 2012. Vadiler: Fassett ve ark. 2010. Gully\'ler: Harrison ve ark. 2015. Sulu mineraller: Carter ve ark. 2013. Akuöz mineral sınıfları: Ehlmann ve Edwards 2014. Keşif bölgesi: NASA 2015 çalıştayı, 1053 numaralı öneri.',
+        '<b>Sınırlar.</b> Eğimler 200 m çözünürlüklü yükseklik modelinden geldiği için kısa ve dik basamaklar yumuşar; gerçek eğimler daha yüksek olabilir. Kumul poligonu alanın tamamını çevreler; rotalar hepsini kapalı sayar. Termal parlaklık görelidir. Kesikli Moreux çerçevesinin dışında altlık, önceki ~1 km/piksel ekran görüntüsü mozaiğidir ve arazi değerleri yoktur. Rotalar kumullardan kaçınan, 15° üzeri eğimi cezalandıran ve 25° üzerini kapatan en düşük maliyetli yollardır; bu sınırlar planlama varsayımıdır, gezici özelliği değildir.'],
+  factsH:'Kamp neden burada', fOpt:'Optik', fTh:'Termal', fTopo:'Topografik', fSci:'Bilim', fEz:'NASA bölgesi',
+  fOptT:d=>`CTX, kampta kumul formu olmayan düz ve koyu bir yüzey gösteriyor. En yakın haritalanmış kumul <b>${N(d.camp.duneKm,1)} km</b> uzakta.`,
+  fThT:d=>`Moreux alanı içinde gece parlaklığı <b>${d.camp.therm}/100</b>. Gece sıcak kalan zemin sıkı ya da kayalıktır.`,
+  fTopoT:d=>`Yükseklik <b>${N(d.camp.elev)} m</b>, eğim <b>${N(d.camp.slope,1)}°</b>. Krater tabanı (ortanca ${N(d.floor.elev)} m) haritalanan alanın en alçak zeminidir. <span class="pill ok">düz</span>`,
+  fSciT:d=>`Güney duvar buzul uçları rota ile <b>${N(d.camp.kmSouth,0)} km</b> uzakta başlıyor. Merkezi tepedeki mineral tespitleri rota ile <b>${N(d.camp.kmMinerals,0)} km</b> uzakta, çünkü kumul alanı doğrudan yolu kapatıyor.`,
+  fEzT:d=>`NASA'nın ${d.ez.name} keşif bölgesinin kenarının <b>${d.ez.edgeKm} km</b> batısında (${d.ez.abstract} numaralı öneri; merkezine ${d.ez.campKm} km). Bölgede ${d.ez.inside.glf} buzul benzeri form var ama haritalanmış mineral tespiti yok; kamp bu yüzden Moreux'da kalıyor.`,
+  layersH:'Harita katmanları', layersNote:'Sayılar, bölgesel çerçevedeki (35–68° D, 35,5–51° K) öğelerdir; Mars Trek öğe servislerinden okundu.',
+  yGlf:'Buzul benzeri formlar', yGully:'Sel oyuntuları (gully)', yValley:'Buzul üstü ve önü vadileri', yHyd:'Sulu mineral (OMEGA, CRISM)', yAqP:'Akuöz mineral: fillosilikat', yAqS:'Akuöz mineral: silika',
+  yDune:'Kumul alanı (gezici giremez)', yEz:'Keşif bölgesi ve ilgi alanları', yRoutes:'Rotalar ve duraklar', yRings:'Kampa uzaklık halkaları', yInset:'Ayrıntılı veri alanı', fields:'alan', roi:'ilgi alanı',
+  routesH:'Gezici rotaları', speed:'Gezici hızı', kmh:'km/sa', hh:'sa', climb:'tırmanış', steep:'dik', dunes:'kumul', dose:'doz', multi:'çok sollu', single:'tek sol',
+  routesNote:'Süre = yol / hız + durak başına 1 saat çalışma; 10 saati aşan rota çok sollu sayıldı (varsayım). Doz, Curiosity\'nin RAD aletinin Gale kraterinde yüzeyde ölçtüğü ortalama 0,64 mSv/gün ile kaba tahmindir (Hassler ve ark. 2014); Moreux için ölçüm yoktur.',
+  stopKm:'{k}. km', tgt:'hedef {e} m',
+  popAt:'Bu noktada güvenlik', popFeat:'Güvenlik · ', close:'Kapat',
+  nNogo:'25° üzeri eğim. Geziciye kapalı.', nSteep:'15° üzeri eğim. Gezici önünde park eder; yaya devam edin ya da uzaktan gözleyin.',
+  nDust:'Termal katmanda koyu: gece hızla soğuyan toz ya da gevşek ince malzeme.', nDune:'Haritalanmış kumul alanı. Gevşek kum geziciyi saplayabilir; tüm rotalar çevresinden dolaşır.',
+  nFloor:'Moreux tabanı, haritalanmış kumulların dışında. Küçük kumullar ve kum örtüleri katalogda eksik olabilir; buraya sürmeden önce CTX katmanına bakın.',
+  nLos:'Merkezi tepe buradan kampa görüş hattını kesebilir. Röle ya da yörünge bağlantısı planlayın.', nOk:'200 m çözünürlüklü arazi verisinde burada eğim, toz ya da kumul uyarısı yok.',
+  nOut:'Ayrıntılı veri alanının dışında: burada eğim ya da termal okuma yok.', nEz:'{n} keşif bölgesinin içinde, merkezine {d} km.',
+  nRing:['25 km halkasının içinde','25 ve 50 km halkaları arasında','50 ve 100 km halkaları arasında','100 km halkasının dışında'],
+  nInfo:'Kampa kuş uçuşu {d} km, {r}. Güneş parçacık fırtınası uyarısında en yakın sığınak kamptır.',
+  dGlf:f=>`Uzunluk ${N(f.len,1)} km, genişlik ${N(f.wid,1)} km, alan ${N(f.area,1)} km², akış yönü ${comp(f.az)} (${f.az}°).`,
+  dGully:f=>`Konum: ${(GS.tr[f.set]||f.set)}. Yön: ${(GP.tr[f.pref]||f.pref)}.`,
+  dValley:()=>'Bir buzulun üstünde ya da önünde erime suyunun açtığı vadi.', dHyd:f=>`${f.inst} ile tespit edildi.`, dAqP:()=>'Sınıf: fillosilikat (kil mineralleri).', dAqS:()=>'Sınıf: silika.',
+  dDune:u=>`Kumul alanı ${u.id}: ${duneType(u.type)} kumullar, ${N(u.area)} km², ortalama kumul yüksekliği ${u.h} m, kayma yüzleri ${u.sf.map(a=>a+'°').join(', ')} yönünde.`,
+  dEz:z=>`${z.name} keşif bölgesinin önerilen iniş noktası (NASA 2015 çalıştayı, ${z.abstract} numaralı öneri, ${z.proposer}). Kampa ${z.campKm} km.`,
+  ezLabel:'KEŞİF BÖLGESİ · 100 KM', ezCentre:'Keşif bölgesi merkezi', duneLabel:'Kumul alanı', insetLabel:'AYRINTILI VERİ ALANI', moreux:'MOREUX KRATERİ',
+  comp:['kuzey','kuzeydoğu','doğu','güneydoğu','güney','güneybatı','batı','kuzeybatı'],
+  dtype:{B:'barkan',Bd:'barkanoid',D:'kubbe',L:'doğrusal',S:'yıldız',SS:'kum örtüsü',T:'enine',U:'sınıflanmamış'}
+}};
+const GS = {en:{'Crater wall':'crater wall','Massif':'massif','Mesa wall':'mesa wall','Mesa':'mesa','Scarp wall':'scarp wall'}, tr:{'Crater wall':'krater duvarı','Massif':'masif','Mesa wall':'mesa duvarı','Mesa':'mesa','Scarp wall':'sarplık duvarı'}};
+const GP = {en:{Equatorward:'equator-facing',Poleward:'pole-facing',East:'east-facing',West:'west-facing'}, tr:{Equatorward:'ekvatora bakan',Poleward:'kutba bakan',East:'doğuya bakan',West:'batıya bakan'}};
+const t = (k, v) => { let s = L[LANG][k]; if (s === undefined) s = L.en[k]; if (v) for (const a in v) s = s.replace('{' + a + '}', v[a]); return s; };
+const N = (v, d) => Number(v).toLocaleString(LANG === 'tr' ? 'tr-TR' : 'en-US', {minimumFractionDigits: d || 0, maximumFractionDigits: d || 0});
+const C = (lat, lon) => `${N(lat,2)}° ${t('N')} ${N(lon,2)}° ${t('E')}`;
+const comp = az => t('comp')[Math.round(az/45) % 8];
+const duneType = s => s.split(',').map(x => t('dtype')[x.trim()] || x.trim()).join(LANG === 'tr' ? ' ve ' : ' and ');
+const tx_ = o => o[LANG] || o.en;
+
+/* ---------- geometry ---------- */
+const px = (lon, lat) => [D.X40 + (lon-40)*D.PPD, D.Y45 - (lat-45)*D.PPD];
+const ll = (x, y) => [40 + (x-D.X40)/D.PPD, 45 - (y-D.Y45)/D.PPD];
+const km = (a, b) => Math.hypot((b[0]-a[0])*KLAT*Math.cos((a[1]+b[1])/2*Math.PI/180), (b[1]-a[1])*KLAT);
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const pathLL = pts => 'M' + pts.map(p => px(p[0], p[1]).map(v => v.toFixed(2)).join(' ')).join('L');
+const inPoly = (P, x, y) => { let c = false; for (let i = 0, j = P.length-1; i < P.length; j = i++) { const a = P[i], b = P[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0]-a[0])*(y-a[1])/(b[1]-a[1]) + a[0]) c = !c; } return c; };
+const CAMP = [D.camp.lon, D.camp.lat], CP = px(...CAMP), IN0 = px(R[0], R[3]), IN1 = px(R[2], R[1]);
+const inInset = (lon, lat) => lon >= R[0] && lon < R[2] && lat > R[1] && lat <= R[3];
+const b64 = s => { const b = atob(s), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; };
+const G = {w: D.dgrid.w, h: D.dgrid.h, e: new Int16Array(b64(D.dgrid.elev).buffer), s: b64(D.dgrid.slope), t: b64(D.dgrid.therm)};
+const terr = (lon, lat) => { if (!inInset(lon, lat)) return null; const i = Math.min(G.w-1, Math.floor((lon-R[0])/(R[2]-R[0])*G.w)), j = Math.min(G.h-1, Math.floor((R[3]-lat)/(R[3]-R[1])*G.h)), n = j*G.w + i; return {e: G.e[n], s: G.s[n]/4, t: G.t[n]}; };
+const duneLL = D.dunes.map(u => u.rings), inDune = (lon, lat) => duneLL.some(rs => rs.some(P => inPoly(P, lon, lat)));
+const inEZ = (lon, lat) => inPoly(D.ez.buffer, lon, lat);
+const CRATER = [44.4, 41.75], PEAK = [44.42, 41.80];
+const RCOL = {r1:'#ffd166', r2:'#ffffff', r3:'#ff8fb1', r4:'#9be7c4'};
+const LAYERS = [
+  {k:'glf', y:'yGlf', shape:'c', fill:'#bff0ff', d:'dGlf'}, {k:'gully', y:'yGully', shape:'t', fill:'#ff9a4d', d:'dGully'}, {k:'valley', y:'yValley', shape:'d', fill:'#5b8cff', d:'dValley'},
+  {k:'hydrous', y:'yHyd', shape:'c', fill:'#ff6fd8', d:'dHyd'}, {k:'aqP', y:'yAqP', shape:'s', fill:'#18b4f0', d:'dAqP'}, {k:'aqS', y:'yAqS', shape:'s', fill:'#b23cf0', d:'dAqS'}];
+const shapeEl = (sh, fill, r) => {
+  const a = {fill, stroke:'#111', 'stroke-width':1.2};
+  if (sh === 'c') return el('circle', Object.assign({r}, a));
+  if (sh === 's') return el('rect', Object.assign({x:-r, y:-r, width:2*r, height:2*r}, a));
+  if (sh === 't') return el('path', Object.assign({d:`M0 ${-r*1.25}L${r*1.15} ${r*.85}L${-r*1.15} ${r*.85}Z`}, a));
+  return el('path', Object.assign({d:`M0 ${-r*1.3}L${r*1.3} 0L0 ${r*1.3}L${-r*1.3} 0Z`}, a));
+};
+
+/* ---------- state ---------- */
+const show = {glf:true, gully:true, valley:true, hydrous:true, aqP:true, aqS:true, dune:true, ez:true, routes:true, rings:true, inset:true};
+let base = 'ctx', over = 'topo', sel = 'r1', selStop = null, pend = {}, popAt = null, popArgs = null;
+let k = 1, tx = 0, ty = 0, f = 1;
+const vp = $('vp'), stage = $('stage'), ov = $('ov'), pop = $('pop');
+let scaled = [], zv = [], grp = {}, routeEls = {}, pin = null, pinRing = null;
+
+/* ---------- imagery ---------- */
+const REG = {ctx:'day.jpg', day:'day.jpg', night:'night.jpg', topo:'topo.jpg'};
+const DET = {ctx:['d_ctx_0.jpg','d_ctx_1.jpg','d_ctx_2.jpg','d_ctx_3.jpg'], day:['d_day.jpg'], night:['d_night.jpg'], topo:['d_topo.jpg']};
+const fillInset = (box, key) => { box.innerHTML = ''; const fs = DET[key], n = fs.length === 4 ? 2 : 1; fs.forEach((src, i) => { const im = document.createElement('img'); im.src = src; im.alt = ''; im.style.left = (i % n)*100/n + '%'; im.style.top = Math.floor(i/n)*100/n + '%'; im.style.width = (100/n + 0.06) + '%'; im.style.height = (100/n + 0.06) + '%'; box.appendChild(im); }); };
+function setLayers(){
+  for (const b of [$('ib'), $('io')]) { b.style.left = IN0[0] + 'px'; b.style.top = IN0[1] + 'px'; b.style.width = (IN1[0]-IN0[0]) + 'px'; b.style.height = (IN1[1]-IN0[1]) + 'px'; }
+  if ($('rb').dataset.k !== base) { $('rb').src = REG[base]; $('rb').dataset.k = base; fillInset($('ib'), base); }
+  const on = over !== 'none' && over !== base, op = $('opacity').value/100;
+  $('ro').style.display = $('io').style.display = on ? '' : 'none';
+  if (on) { if ($('ro').dataset.k !== over) { $('ro').src = REG[over]; $('ro').dataset.k = over; fillInset($('io'), over); } $('ro').style.opacity = REG[over] === REG[base] ? 0 : op; $('io').style.opacity = op; }
+  $('opv').textContent = LANG === 'tr' ? '%' + $('opacity').value : $('opacity').value + '%';
+}
+
+/* ---------- overlay ---------- */
+const mark = (parent, x, y, min) => { const g = el('g', {}, parent); g._p = [x, y]; scaled.push(g); if (min) zv.push([g, min]); return g; };
+const halo = {stroke:'#16130f', 'stroke-width':3.5, 'paint-order':'stroke'};
+function buildOverlay(){
+  ov.innerHTML = ''; scaled = []; zv = []; grp = {}; routeEls = {};
+  const add = n => grp[n] = el('g', {}, ov);
+  // exploration zone
+  add('ez');
+  el('path', {d: pathLL(D.ez.buffer) + 'Z', fill:'none', stroke:'#16130f', 'stroke-width':4.5, 'vector-effect':'non-scaling-stroke'}, grp.ez);
+  el('path', {d: pathLL(D.ez.buffer) + 'Z', fill:'none', stroke:'#ede5d8', 'stroke-width':1.6, 'vector-effect':'non-scaling-stroke'}, grp.ez);
+  D.ez.rois.forEach(r => { el('path', {d: pathLL(r.ring) + 'Z', fill:'#5fd35f', 'fill-opacity':.06, stroke:'#5fd35f', 'stroke-width':1.4, 'vector-effect':'non-scaling-stroke'}, grp.ez);
+    const c = r.ring.reduce((a, p) => [a[0]+p[0]/r.ring.length, a[1]+p[1]/r.ring.length], [0,0]), g = mark(grp.ez, ...px(c[0], c[1]), 1.8);
+    el('text', Object.assign({'text-anchor':'middle', fill:'#9ff09f', 'font-size':11, 'font-family':'IBM Plex Mono, monospace'}, halo), g).textContent = 'ROI ' + r.name; });
+  const ezP = px(D.ez.lon, D.ez.lat), top = D.ez.buffer.reduce((a, p) => p[1] > a[1] ? p : a);
+  el('text', Object.assign({y:-7, 'text-anchor':'middle', fill:'#ede5d8', 'font-size':11.5, 'font-weight':600, 'font-family':'Barlow Condensed, sans-serif', 'letter-spacing':'1'}, halo), mark(grp.ez, ...px(top[0], top[1]))).textContent = D.ez.name.toUpperCase() + ' ' + t('ezLabel');
+  { const g = mark(grp.ez, ezP[0], ezP[1]); g.setAttribute('class', 'mk'); el('circle', {r:5.5, fill:'#e9c46a', stroke:'#16130f', 'stroke-width':1.5}, g); el('title', {}, g).textContent = t('dEz')(D.ez);
+    g.addEventListener('click', () => { pend = {label: t('ezCentre'), info: t('dEz')(D.ez), xy: ezP}; }); }
+  // detailed area frame + 1° graticule
+  add('inset');
+  el('rect', {x:IN0[0], y:IN0[1], width:IN1[0]-IN0[0], height:IN1[1]-IN0[1], fill:'none', stroke:'#ede5d8', 'stroke-opacity':.7, 'stroke-dasharray':'6 4', 'stroke-width':1.2, 'vector-effect':'non-scaling-stroke'}, grp.inset);
+  el('text', Object.assign({x:4, y:-6, fill:'#ede5d8', 'font-size':11, 'font-weight':600, 'font-family':'Barlow Condensed, sans-serif', 'letter-spacing':'1'}, halo), mark(grp.inset, IN0[0], IN0[1])).textContent = t('insetLabel');
+  for (let lo = Math.ceil(R[0]); lo <= Math.floor(R[2]); lo++) { el('line', {x1:px(lo,0)[0], x2:px(lo,0)[0], y1:IN0[1], y2:IN1[1], stroke:'#ede5d8', 'stroke-opacity':.28, 'stroke-width':1, 'vector-effect':'non-scaling-stroke'}, grp.inset);
+    el('text', Object.assign({x:4, y:-5, fill:'#ede5d8', 'font-size':10.5, 'font-family':'IBM Plex Mono, monospace'}, halo), mark(grp.inset, px(lo,0)[0], IN1[1], 3)).textContent = lo + '° ' + t('E'); }
+  for (let la = Math.ceil(R[1]); la <= Math.floor(R[3]); la++) { el('line', {y1:px(0,la)[1], y2:px(0,la)[1], x1:IN0[0], x2:IN1[0], stroke:'#ede5d8', 'stroke-opacity':.28, 'stroke-width':1, 'vector-effect':'non-scaling-stroke'}, grp.inset);
+    el('text', Object.assign({x:4, y:-4, fill:'#ede5d8', 'font-size':10.5, 'font-family':'IBM Plex Mono, monospace'}, halo), mark(grp.inset, IN0[0], px(0,la)[1], 3)).textContent = la + '° ' + t('N'); }
+  el('text', Object.assign({'text-anchor':'middle', fill:'#ede5d8', 'fill-opacity':.85, 'font-size':13, 'font-weight':600, 'font-family':'Barlow Condensed, sans-serif', 'letter-spacing':'2.5'}, halo), mark(grp.inset, ...px(44.4, 42.72), 3)).textContent = t('moreux');
+  // dunes
+  add('dune');
+  D.dunes.forEach(u => { const p = el('path', {d: u.rings.map(rg => pathLL(rg) + 'Z').join(''), fill:'#f472d0', 'fill-opacity':.3, stroke:'#ffd0f2', 'stroke-width':1.3, 'stroke-linejoin':'round', 'vector-effect':'non-scaling-stroke', class:'mk'}, grp.dune);
+    el('title', {}, p).textContent = t('dDune')(u); p.addEventListener('click', () => { pend = {label: t('duneLabel'), info: t('dDune')(u)}; }); });
+  // rings
+  add('rings');
+  [25,50,100].forEach(r => {
+    el('ellipse', {cx:CP[0], cy:CP[1], rx:r/(KLAT*Math.cos(CAMP[1]*Math.PI/180))*D.PPD, ry:r/KLAT*D.PPD, fill:'none', stroke:'#ede5d8', 'stroke-opacity':.55, 'stroke-dasharray':'5 5', 'vector-effect':'non-scaling-stroke', 'stroke-width':1}, grp.rings);
+    el('text', Object.assign({y:-4, 'text-anchor':'middle', fill:'#ede5d8', 'font-size':11, 'font-family':'IBM Plex Mono, monospace'}, halo), mark(grp.rings, CP[0] - 0.5*r/(KLAT*Math.cos(CAMP[1]*Math.PI/180))*D.PPD, CP[1] - 0.866*r/KLAT*D.PPD, 2)).textContent = r + ' km'; });
+  // glacier flow lines (head to terminus), shown when zoomed in
+  add('flow'); zv.push([grp.flow, 5]);
+  D.feat.glf.forEach(q => { const a = px(...q.head), b = px(...q.term); el('line', {x1:a[0], y1:a[1], x2:b[0], y2:b[1], stroke:'#7fe3ff', 'stroke-width':2, 'stroke-linecap':'round', 'vector-effect':'non-scaling-stroke'}, grp.flow); const g = mark(grp.flow, b[0], b[1]); el('circle', {r:2.6, fill:'#7fe3ff', stroke:'#111', 'stroke-width':.8}, g); });
+  // point features
+  LAYERS.forEach(Ly => { add(Ly.k); D.feat[Ly.k].forEach(q => { const p = px(q.lon, q.lat), m = mark(grp[Ly.k], p[0], p[1]); m.setAttribute('class', 'mk'); m.appendChild(shapeEl(Ly.shape, Ly.fill, Ly.k === 'glf' ? 3.6 : 4.6));
+    const info = t(Ly.d)(q); el('title', {}, m).textContent = `${t(Ly.y)} · ${C(q.lat, q.lon)} · ${info}`; m.addEventListener('click', () => { pend = {label: t(Ly.y), info, xy: p}; }); }); });
+  // routes
+  add('routes');
+  D.routes.forEach(r => { const g = el('g', {}, grp.routes), d = pathLL(r.line);
+    el('path', {d, fill:'none', stroke:'#16130f', 'stroke-width':5, 'stroke-linejoin':'round', 'stroke-linecap':'round', 'vector-effect':'non-scaling-stroke', 'stroke-opacity':.8}, g);
+    const main = el('path', {d, fill:'none', stroke:RCOL[r.id], 'stroke-width':2.4, 'stroke-linejoin':'round', 'stroke-linecap':'round', 'vector-effect':'non-scaling-stroke'}, g);
+    const steep = el('path', {d: r.steepLines.map(pathLL).join('') || 'M0 0', fill:'none', stroke:'#e5604f', 'stroke-width':4.5, 'stroke-linecap':'round', 'vector-effect':'non-scaling-stroke'}, g);
+    g.style.cursor = 'pointer'; g.addEventListener('click', () => selectRoute(r.id)); steep.addEventListener('click', () => { pend.steep = true; }); routeEls[r.id] = {g, main, steep}; });
+  add('stops');
+  // camp
+  add('camp');
+  { const g = mark(grp.camp, CP[0], CP[1]); g.setAttribute('class', 'mk');
+    el('path', {d:'M0 -11L10 -3L10 9L-10 9L-10 -3Z', fill:'#16130f', stroke:'#86b9e0', 'stroke-width':2.2, 'stroke-linejoin':'round'}, g); el('path', {d:'M-3 9V2H3V9', fill:'none', stroke:'#86b9e0', 'stroke-width':1.8}, g);
+    el('text', Object.assign({y:24, 'text-anchor':'middle', fill:'#86b9e0', 'font-size':13, 'font-weight':600, 'font-family':'Barlow Condensed, sans-serif', 'letter-spacing':'1.5'}, halo), g).textContent = t('camp');
+    el('title', {}, g).textContent = t('campSite') + ' · ' + C(CAMP[1], CAMP[0]); g.addEventListener('click', () => { pend = {label: t('campSite'), xy: CP}; showChip('camp'); }); }
+  // pin
+  grp.pin = el('g', {}, ov); pin = mark(grp.pin, 0, 0); pinRing = el('circle', {r:9, fill:'none', stroke:'#ede5d8', 'stroke-width':2.5}, pin); el('circle', {r:9, fill:'none', stroke:'#16130f', 'stroke-width':1, 'stroke-opacity':.8}, pin); el('circle', {r:2, fill:'#16130f'}, pin);
+  grp.pin.style.display = popAt ? '' : 'none'; grp.pin.style.pointerEvents = 'none'; if (popAt) pin._p = popAt;
+  applyShow();
+}
+function applyShow(){
+  for (const Ly of LAYERS) grp[Ly.k].style.display = show[Ly.k] ? '' : 'none';
+  grp.flow.style.display = show.glf ? '' : 'none';
+  grp.dune.style.display = show.dune ? '' : 'none'; grp.ez.style.display = show.ez ? '' : 'none'; grp.rings.style.display = show.rings ? '' : 'none'; grp.inset.style.display = show.inset ? '' : 'none';
+  grp.routes.style.display = grp.stops.style.display = show.routes ? '' : 'none';
+}
+
+/* ---------- pan / zoom ---------- */
+const apply = anim => {
+  f = vp.clientWidth / W; const s = f*k, vw = vp.clientWidth, vh = vp.clientHeight;
+  tx = Math.min(0, Math.max(vw - W*s, tx)); ty = Math.min(0, Math.max(vh - H*s, ty));
+  stage.classList.toggle('anim', !!anim); stage.style.transform = `translate(${tx}px,${ty}px) scale(${s})`;
+  const inv = 1/s; for (const g of scaled) g.setAttribute('transform', `translate(${g._p[0]} ${g._p[1]}) scale(${inv})`);
+  for (const [g, min] of zv) g.style.visibility = k >= min ? 'visible' : 'hidden';
+  if (grp.stops) grp.stops.style.visibility = k >= 2 ? 'visible' : 'hidden';
+  vp.classList.toggle('zoomed', k > 1.01);
+  const pxPerKm = D.PPD/KLAT*s, kmv = [200,100,50,25,10,5,2,1,0.5].find(c => c*pxPerKm <= 110) || 0.5;
+  $('scl').textContent = `${N(kmv, kmv < 1 ? 1 : 0)} km (${t('scaleNS')})`; $('sclbar').style.width = (kmv*pxPerKm) + 'px';
+  placePop();
+};
+const KMAX = 64;
+const zoomAt = (nk, cx, cy, anim) => { nk = Math.min(KMAX, Math.max(1, nk)); const s0 = f*k, s1 = f*nk, mx = (cx - tx)/s0, my = (cy - ty)/s0; k = nk; tx = cx - mx*s1; ty = cy - my*s1; apply(anim); };
+const center = (x, y, nk, anim) => { k = nk; f = vp.clientWidth/W; tx = vp.clientWidth/2 - x*f*k; ty = vp.clientHeight/2 - y*f*k; apply(anim !== false); };
+vp.addEventListener('wheel', e => { e.preventDefault(); const r = vp.getBoundingClientRect(); zoomAt(k*(e.deltaY < 0 ? 1.25 : 0.8), e.clientX - r.left, e.clientY - r.top); }, {passive:false});
+let drag = null, wasDrag = false;
+vp.addEventListener('pointerdown', e => { if (e.target.closest('.hud')) return; wasDrag = false; drag = {x:e.clientX, y:e.clientY, tx, ty, moved:false}; });
+window.addEventListener('pointermove', e => {
+  const r = vp.getBoundingClientRect(), inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  if (drag && k > 1.01) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) { drag.moved = true; vp.classList.add('drag'); } if (drag.moved) { tx = drag.tx + dx; ty = drag.ty + dy; apply(); } }
+  if (inside && !(drag && drag.moved)) { const s = f*k; showAt((e.clientX - r.left - tx)/s, (e.clientY - r.top - ty)/s); }
+});
+window.addEventListener('pointerup', () => { wasDrag = !!(drag && drag.moved); drag = null; vp.classList.remove('drag'); });
+vp.addEventListener('click', e => {
+  if (e.target.closest('.hud')) return; const p = pend; pend = {}; if (wasDrag) { wasDrag = false; return; }
+  const r = vp.getBoundingClientRect(), s = f*k; const x = p.xy ? p.xy[0] : (e.clientX - r.left - tx)/s, y = p.xy ? p.xy[1] : (e.clientY - r.top - ty)/s; openPop(x, y, p);
+});
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); });
+$('zin').onclick = () => zoomAt(k*1.6, vp.clientWidth/2, vp.clientHeight/2, true);
+$('zout').onclick = () => zoomAt(k/1.6, vp.clientWidth/2, vp.clientHeight/2, true);
+$('vAll').onclick = () => { k = 1; tx = ty = 0; apply(true); };
+const viewCrater = anim => center((IN0[0]+IN1[0])/2, (IN0[1]+IN1[1])/2 + 4, 5.0, anim);
+$('vCrater').onclick = () => viewCrater(true);
+$('vCamp').onclick = () => center(CP[0], CP[1], 22);
+window.addEventListener('resize', () => apply());
+
+/* ---------- readout ---------- */
+let lastXY = CP;
+function showAt(x, y, label){
+  if (x < 0 || y < 0 || x >= W || y >= H) return; lastXY = [x, y];
+  const [lon, lat] = ll(x, y), d = km(CAMP, [lon, lat]), T = terr(lon, lat);
+  $('rPos').textContent = C(lat, lon);
+  $('rDist').textContent = d < 0.3 ? t('campSite') : (label ? label + ' · ' : '') + t('fromCamp', {d: d < 10 ? N(d,1) : N(d)});
+  if (!T) { $('rEl').textContent = '–'; $('rSl').textContent = t('outside'); $('rTh').textContent = '–'; $('rThT').textContent = ''; $('rCls').textContent = '–'; return; }
+  $('rEl').textContent = `${N(T.e)} m · ${N(T.s,1)}°`;
+  const sc = T.s < D.thr.flat ? ['slFlat','ok'] : T.s < D.thr.steep ? ['slMod','warn'] : T.s < D.thr.nogo ? ['slSteep','crit'] : ['slNogo','crit'];
+  $('rSl').innerHTML = `<span class="pill ${sc[1]}">${t(sc[0])}</span>`;
+  $('rTh').textContent = t('bright', {t: T.t});
+  const tc = T.t < D.thr.dust ? ['thCold','warn'] : T.t < D.thr.rock ? ['thMed','ok'] : ['thWarm','ok'];
+  $('rThT').innerHTML = `<span class="pill ${tc[1]}">${t(tc[0])}</span>`;
+  $('rCls').textContent = t(inDune(lon, lat) ? 'gDune' : T.s >= D.thr.nogo ? 'gNogo' : T.s >= D.thr.steep ? 'gSteep' : T.t < D.thr.dust ? 'gDust' : (T.t >= D.thr.rock && T.s < D.thr.flat) ? 'gFirm' : 'gPass');
+}
+
+/* ---------- safety popup ---------- */
+function safetyAt(x, y, forceSteep){
+  const [lon, lat] = ll(x, y), pt = [lon, lat], T = terr(lon, lat), d = km(CAMP, pt), out = [];
+  if (T) {
+    if (T.s >= D.thr.nogo) out.push(['c', t('nNogo')]); else if (forceSteep || T.s >= D.thr.steep) out.push(['c', t('nSteep')]);
+    if (inDune(lon, lat)) out.push(['c', t('nDune')]);
+    else if (km(CRATER, pt) < 60 && T.e < -3900 && km(PEAK, pt) > 9) out.push(['w', t('nFloor')]);
+    if (T.t < D.thr.dust) out.push(['w', t('nDust')]);
+    const c0 = Math.cos(CAMP[1]*Math.PI/180), X = q => (q[0]-CAMP[0])*KLAT*c0, Y = q => (q[1]-CAMP[1])*KLAT, vx = X(pt), vy = Y(pt), ax = X(PEAK), ay = Y(PEAK), L2 = vx*vx + vy*vy;
+    if (L2 > 0 && km(CRATER, pt) < 70) { const u = (ax*vx + ay*vy)/L2; if (u > 0 && u < 1 && Math.hypot(ax - u*vx, ay - u*vy) < 8) out.push(['w', t('nLos')]); }
+    if (!out.length) out.push(['g', t('nOk')]);
+  } else out.push(['f', t('nOut')]);
+  if (inEZ(lon, lat)) out.push(['i', t('nEz', {n: D.ez.name, d: N(km([D.ez.lon, D.ez.lat], pt))})]);
+  out.push(['i', t('nInfo', {d: d < 10 ? N(d,1) : N(d), r: t('nRing')[d < 25 ? 0 : d < 50 ? 1 : d < 100 ? 2 : 3]})]);
+  return out;
+}
+function openPop(x, y, p){
+  if (x < 0 || y < 0 || x >= W || y >= H) return; p = p || {};
+  const [lon, lat] = ll(x, y), notes = safetyAt(x, y, p.steep);
+  $('popT').textContent = p.label ? t('popFeat') + p.label : t('popAt'); $('popW').textContent = C(lat, lon);
+  const ul = $('popN'); ul.innerHTML = '';
+  (p.info ? [['f', p.info]] : []).concat(notes).forEach(n => { const li = document.createElement('li'); if (n[0] !== 'w') li.className = n[0]; const sp = document.createElement('span'); sp.textContent = n[1]; li.appendChild(sp); ul.appendChild(li); });
+  pinRing.setAttribute('stroke', notes[0][0] === 'c' ? '#e5604f' : notes[0][0] === 'w' ? '#e6a640' : notes[0][0] === 'g' ? '#8fbf8f' : '#ede5d8');
+  popAt = [x, y]; popArgs = p; pin._p = [x, y]; grp.pin.style.display = ''; showAt(x, y, p.label); apply();
+}
+function closePop(){ popAt = null; popArgs = null; pop.hidden = true; if (grp.pin) grp.pin.style.display = 'none'; }
+function placePop(){
+  if (!popAt) return; const s = f*k, sx = popAt[0]*s + tx, sy = popAt[1]*s + ty, vw = vp.clientWidth, vh = vp.clientHeight, inside = sx >= 0 && sx <= vw && sy >= 0 && sy <= vh;
+  pop.hidden = !inside; if (!inside) return;
+  if (window.matchMedia('(max-width:620px)').matches) { pop.style.left = pop.style.top = ''; return; }
+  const w = pop.offsetWidth; let left = sx + 16; if (left + w > vw - 6) left = sx - 16 - w; if (left < 6) left = 6;
+  pop.style.left = left + 'px'; pop.style.top = Math.min(sy + 16, vh - 48) + 'px';
+}
+$('popx').addEventListener('click', closePop);
+
+/* ---------- panels ---------- */
+const seg = (id, cb) => $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; cb(b.dataset.v); });
+const press = (id, v) => [...$(id).children].forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+seg('baseSeg', v => { base = v; press('baseSeg', v); setLayers(); });
+seg('overSeg', v => { over = v; press('overSeg', v); setLayers(); });
+seg('langSeg', v => { LANG = v; try { localStorage.setItem('moreux-lang', v); } catch (e) {} renderAll(); });
+$('opacity').addEventListener('input', setLayers);
+$('spd').addEventListener('input', stats);
+
+function buildToggles(){
+  const tg = $('tg'); tg.innerHTML = '';
+  const add = (key, name, n, icon) => { const lab = document.createElement('label'), inp = document.createElement('input'); inp.type = 'checkbox'; inp.id = 'tg-' + key; inp.checked = show[key]; inp.addEventListener('change', () => { show[key] = inp.checked; applyShow(); });
+    const ic = document.createElementNS(NS, 'svg'); ic.setAttribute('viewBox', '-8 -8 16 16'); ic.setAttribute('width', 18); ic.setAttribute('height', 18); ic.appendChild(icon);
+    const a = document.createElement('span'); a.textContent = name; const c = document.createElement('span'); c.className = 'n'; c.textContent = n; lab.append(inp, ic, a, c); tg.appendChild(lab); };
+  LAYERS.forEach(Ly => add(Ly.k, t(Ly.y), D.feat[Ly.k].length, shapeEl(Ly.shape, Ly.fill, 4.6)));
+  add('dune', t('yDune'), D.dunes.length + ' ' + t('fields'), el('rect', {x:-6, y:-5, width:12, height:10, rx:2, fill:'#f472d0', 'fill-opacity':.6, stroke:'#ffd0f2'}));
+  add('ez', t('yEz'), D.ez.rois.length + ' ' + t('roi'), el('circle', {r:5.5, fill:'none', stroke:'#5fd35f', 'stroke-width':1.8}));
+  add('routes', t('yRoutes'), D.routes.length, el('path', {d:'M-7 4C-3 -6 3 6 7 -4', fill:'none', stroke:'#ffd166', 'stroke-width':2.2}));
+  add('rings', t('yRings'), '25/50/100', el('circle', {r:5.5, fill:'none', stroke:'#ede5d8', 'stroke-dasharray':'2.5 2.5'}));
+  add('inset', t('yInset'), '40 m', el('rect', {x:-6, y:-5, width:12, height:10, fill:'none', stroke:'#ede5d8', 'stroke-dasharray':'3 2'}));
+}
+function buildRoutes(){
+  const rb = $('routes'); rb.innerHTML = '';
+  D.routes.forEach(r => { const b = document.createElement('button'); b.className = 'route'; b.dataset.id = r.id; b.innerHTML = `<i style="background:${RCOL[r.id]}"></i><div><strong></strong><em></em><div class="stats"></div></div>`;
+    b.querySelector('strong').textContent = tx_(r.name); b.querySelector('em').textContent = tx_(r.sub); b.addEventListener('click', () => selectRoute(r.id)); rb.appendChild(b); });
+  stats();
+}
+function stats(){
+  const v = +$('spd').value; $('spdv').textContent = v + ' ' + t('kmh');
+  D.routes.forEach(r => { const h = r.km/v + r.stops.length, dose = h/24*0.64, b = $('routes').querySelector(`[data-id=${r.id}] .stats`); if (!b) return;
+    b.innerHTML = `<span>${N(r.km)} km</span><span>${N(h,1)} ${t('hh')}</span><span><b>${t('climb')}</b> ${N(r.climb)} m</span><span><b>${t('steep')}</b> ${LANG === 'tr' ? '%' + r.steep : r.steep + '%'}</span><span><b>${t('dunes')}</b> ${LANG === 'tr' ? '%' + r.dune : r.dune + '%'}</span><span><b>${t('dose')}</b> ~${N(dose,2)} mSv</span>` + (h > 10 ? `<span class="pill warn">${t('multi')}</span>` : `<span class="pill ok">${t('single')}</span>`); });
+}
+const walkable = w => w.km <= 2 && Math.abs(w.gain) <= 200 && w.maxSlope <= 20;
+const walkText = s => s.walk.km < 0.15 ? t('walkNone') : s.walk.gain >= 0 ? t('walkTxt', {p: N(s.elev - s.parkElev), k: N(s.walk.km,1), g: N(s.walk.gain), s: s.walk.maxSlope}) : t('walkDown', {k: N(s.walk.km,1), g: N(-s.walk.gain), s: s.walk.maxSlope});
+function selectRoute(id, keepStop){
+  sel = id; const r = D.routes.find(q => q.id === id);
+  [...$('routes').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.id === id));
+  for (const key in routeEls) { const on = key === id; routeEls[key].g.style.opacity = on ? 1 : .45; routeEls[key].main.setAttribute('stroke-width', on ? 3.2 : 1.8); routeEls[key].steep.style.display = on ? '' : 'none'; }
+  routeEls[id].g.parentNode.appendChild(routeEls[id].g);
+  scaled = scaled.filter(g => g.parentNode !== grp.stops && g._stop !== true); grp.stops.innerHTML = '';
+  const ol = $('stops'); ol.innerHTML = '';
+  r.stops.forEach((s, i) => {
+    const P = px(...s.park), T = px(s.lon, s.lat);
+    if (s.walk.km >= 0.15) el('line', {x1:P[0], y1:P[1], x2:T[0], y2:T[1], stroke:'#ede5d8', 'stroke-width':2, 'stroke-dasharray':'2 5', 'stroke-linecap':'round', 'vector-effect':'non-scaling-stroke'}, grp.stops);
+    const tg = mark(grp.stops, T[0], T[1]); tg._stop = true; el('circle', {r:6, fill:'none', stroke:'#86b9e0', 'stroke-width':2.4}, tg); el('circle', {r:6, fill:'none', stroke:'#16130f', 'stroke-width':.8}, tg);
+    const g = mark(grp.stops, P[0], P[1]); g._stop = true; g.setAttribute('class', 'mk'); el('circle', {r:9.5, fill:'#ede5d8', stroke:'#16130f', 'stroke-width':1.5}, g);
+    el('text', {y:4, 'text-anchor':'middle', 'font-size':12, 'font-weight':600, 'font-family':'IBM Plex Mono, monospace', fill:'#16130f'}, g).textContent = i+1; el('title', {}, g).textContent = `${i+1}. ${tx_(s.t)}`;
+    g.addEventListener('click', () => { pend = {label: tx_(s.t), info: walkText(s), xy: P}; showChip(s.id); });
+    const li = document.createElement('li'), b = document.createElement('button'); b.dataset.id = s.id;
+    b.innerHTML = `<b>${i+1}</b><span><span class="st"></span><small>${C(s.lat, s.lon)} · ${t('stopKm', {k: N(s.km)})} · ${t('tgt', {e: N(s.elev)})}</small><small class="wk"></small></span>`;
+    b.querySelector('.st').textContent = tx_(s.t); const wk = b.querySelector('.wk'); wk.textContent = walkText(s); if (!walkable(s.walk)) wk.className = 'wk flag';
+    b.addEventListener('click', () => { showChip(s.id); center(...px((s.lon + s.park[0])/2, (s.lat + s.park[1])/2), Math.max(k, 26)); }); li.appendChild(b); ol.appendChild(li);
+  });
+  apply(); profile(r); if (!keepStop || !r.stops.some(s => s.id === selStop)) showChip(selStop === 'camp' && keepStop ? 'camp' : r.stops[0].id);
+  else showChip(selStop);
+}
+function profile(r){
+  const P = $('prof'); P.innerHTML = ''; $('profTitle').textContent = `${t('profT')} · ${tx_(r.name)} · ${N(r.km)} km`;
+  const X0 = 52, X1 = 862, T = 14, B = 164, n = r.prof.e.length, X = i => X0 + (X1-X0)*i/(n-1);
+  const lo = Math.floor(Math.min(...r.prof.e)/250)*250, hi = Math.max(lo + 500, Math.ceil(Math.max(...r.prof.e)/250)*250), Y = v => B - (B-T)*(v-lo)/(hi-lo), Yt = v => B - (B-T)*v/100;
+  const step = (hi-lo) > 2500 ? 1000 : (hi-lo) > 1200 ? 500 : 250;
+  for (let v = Math.ceil(lo/step)*step; v <= hi; v += step) { el('line', {x1:X0, x2:X1, y1:Y(v), y2:Y(v), stroke:'#3d352c', 'stroke-width':1}, P); el('text', {x:X0-6, y:Y(v)+4, 'text-anchor':'end'}, P).textContent = N(v); }
+  [0,50,100].forEach(v => { const tt = el('text', {x:X1+6, y:Yt(v)+4}, P); tt.textContent = v; tt.style.fill = '#86b9e0'; });
+  let st = -1; for (let i = 0; i <= n; i++) { const on = i < n && r.prof.s[i] > D.thr.steep; if (on && st < 0) st = i; if (!on && st >= 0) { el('rect', {x:X(Math.max(0,st-.5)), y:T, width:Math.max(2, X(Math.min(n-1,i-.5)) - X(Math.max(0,st-.5))), height:B-T, fill:'#e5604f', opacity:.3}, P); st = -1; } }
+  const path = (a, fy) => 'M' + a.map((v,i) => X(i).toFixed(1) + ' ' + fy(v).toFixed(1)).join('L');
+  el('path', {d: path(r.prof.e, Y) + `L${X1} ${B}L${X0} ${B}Z`, fill:'#ede5d8', opacity:.1}, P);
+  const ts = r.prof.t.map((v,i,A) => { let q = 0, c = 0; for (let j = Math.max(0,i-3); j <= Math.min(A.length-1,i+3); j++) { q += A[j]; c++; } return q/c; });
+  el('path', {d: path(ts, Yt), fill:'none', stroke:'#86b9e0', 'stroke-width':1.3, opacity:.85}, P);
+  el('path', {d: path(r.prof.e, Y), fill:'none', stroke:'#ede5d8', 'stroke-width':2}, P);
+  const xs = r.km > 150 ? 50 : 25; for (let d = 0; d <= r.km; d += xs) { const x = X0 + (X1-X0)*d/r.km; el('line', {x1:x, x2:x, y1:B, y2:B+4, stroke:'#a69b8d'}, P); el('text', {x, y:B+17, 'text-anchor':'middle'}, P).textContent = d + (d === 0 ? ' km' : ''); }
+  r.stops.forEach((s,i) => { const x = X0 + (X1-X0)*s.km/r.km; el('line', {x1:x, x2:x, y1:T, y2:B, stroke:'#ede5d8', 'stroke-dasharray':'3 3', opacity:.7}, P); el('circle', {cx:x, cy:T+2, r:8, fill:'#ede5d8'}, P); const q = el('text', {x, y:T+6, 'text-anchor':'middle'}, P); q.textContent = i+1; q.style.fill = '#16130f'; q.style.fontWeight = 600; });
+  el('text', {x:X1, y:B+17, 'text-anchor':'end'}, P).textContent = t('camp').toLowerCase();
+}
+function showChip(id){
+  selStop = id; const c = D.chips[id], O = $('chipOv'); O.innerHTML = ''; $('chipImg').src = c.f;
+  const bb = c.bb, cx = lon => (lon-bb[0])/(bb[2]-bb[0])*1000, cy = lat => (bb[3]-lat)/(bb[3]-bb[1])*1000, hk = (bb[3]-bb[1])*KLAT, wk = (bb[2]-bb[0])*KLAT*Math.cos((bb[1]+bb[3])/2*Math.PI/180);
+  [...$('stops').querySelectorAll('button')].forEach(b => b.setAttribute('aria-pressed', b.dataset.id === id));
+  const r = D.routes.find(q => q.id === sel), ln = 'M' + r.line.map(p => cx(p[0]).toFixed(1) + ' ' + cy(p[1]).toFixed(1)).join('L');
+  el('path', {d: ln, fill:'none', stroke:'#16130f', 'stroke-width':9, 'stroke-opacity':.7, 'stroke-linejoin':'round'}, O); el('path', {d: ln, fill:'none', stroke:RCOL[sel], 'stroke-width':4.5, 'stroke-linejoin':'round'}, O);
+  const key = [];
+  if (id === 'camp') {
+    const g = el('g', {transform:`translate(${cx(CAMP[0])} ${cy(CAMP[1])}) scale(2)`}, O); el('path', {d:'M0 -11L10 -3L10 9L-10 9L-10 -3Z', fill:'#16130f', stroke:'#86b9e0', 'stroke-width':2.2, 'stroke-linejoin':'round'}, g);
+    $('chipT').textContent = t('campChipT'); $('chipW').textContent = `${C(CAMP[1], CAMP[0])} · ${N(D.camp.elev)} m`; $('chipN').textContent = t('campChipN'); $('chipWalk').textContent = ''; $('chipWalk').className = '';
+    key.push(['<path d="M8 2L14 7V14H2V7Z" fill="#16130f" stroke="#86b9e0" stroke-width="1.6"/>', t('kCamp')]);
+  } else {
+    const s = r.stops.find(q => q.id === id) || D.routes.flatMap(q => q.stops).find(q => q.id === id), i = r.stops.indexOf(s);
+    if (s.walk.km >= 0.15) el('line', {x1:cx(s.park[0]), y1:cy(s.park[1]), x2:cx(s.lon), y2:cy(s.lat), stroke:'#ede5d8', 'stroke-width':5, 'stroke-dasharray':'3 13', 'stroke-linecap':'round'}, O);
+    el('circle', {cx:cx(s.lon), cy:cy(s.lat), r:17, fill:'none', stroke:'#16130f', 'stroke-width':9}, O); el('circle', {cx:cx(s.lon), cy:cy(s.lat), r:17, fill:'none', stroke:'#86b9e0', 'stroke-width':5}, O);
+    el('circle', {cx:cx(s.park[0]), cy:cy(s.park[1]), r:21, fill:'#ede5d8', stroke:'#16130f', 'stroke-width':3}, O);
+    const q = el('text', {x:cx(s.park[0]), y:cy(s.park[1])+9, 'text-anchor':'middle', 'font-size':26, 'font-weight':600, 'font-family':'IBM Plex Mono, monospace', fill:'#16130f'}, O); q.textContent = i >= 0 ? i+1 : 'P';
+    $('chipT').textContent = tx_(s.t); $('chipW').textContent = `${C(s.lat, s.lon)} · ${N(s.elev)} m · ${N(s.slope)}°`; $('chipN').textContent = tx_(s.n);
+    $('chipWalk').textContent = walkText(s) + (walkable(s.walk) ? '' : ' ' + t('walkFlag')); $('chipWalk').className = walkable(s.walk) ? '' : 'flag';
+    key.push(['<circle cx="8" cy="8" r="5" fill="none" stroke="#86b9e0" stroke-width="2.2"/>', t('kTarget')], ['<circle cx="8" cy="8" r="6.5" fill="#ede5d8" stroke="#16130f"/>', t('kPark')], ['<path d="M1 8H15" stroke="#ede5d8" stroke-width="2.2" stroke-dasharray="1 4" stroke-linecap="round"/>', t('kWalk')]);
+  }
+  key.push([`<path d="M1 8H15" stroke="${RCOL[sel]}" stroke-width="3" stroke-linecap="round"/>`, t('kRoute')]);
+  $('chipKey').innerHTML = key.map(q => `<span><svg viewBox="0 0 16 16">${q[0]}</svg>${q[1]}</span>`).join('');
+  const sb = 1000/hk; el('rect', {x:26, y:936, width:sb + 28, height:44, rx:5, fill:'#16130f', 'fill-opacity':.8}, O); el('path', {d:`M40 962H${40+sb}M40 954V970M${40+sb} 954V970`, stroke:'#ede5d8', 'stroke-width':3, fill:'none'}, O);
+  const lt = el('text', {x:40 + sb/2, y:954, 'text-anchor':'middle', 'font-size':20, 'font-family':'IBM Plex Mono, monospace', fill:'#ede5d8'}, O); lt.textContent = '1 km';
+  $('chipCap').textContent = t('chipCap', {w: N(wk,1), h: N(hk,1)});
+}
+function buildStatic(){
+  document.documentElement.lang = LANG; document.title = t('title');
+  document.querySelectorAll('[data-t]').forEach(e => { e.textContent = t(e.dataset.t); });
+  press('langSeg', LANG); press('baseSeg', base); press('overSeg', over);
+  $('hc').innerHTML = `${t('camp')} ${N(CAMP[1],2)}° ${t('N')} · ${N(CAMP[0],2)}° ${t('E')}<br><span>${t('hcSub', {e: N(D.camp.elev)})}</span>`;
+  $('facts').innerHTML = [['fOpt','fOptT'],['fTh','fThT'],['fTopo','fTopoT'],['fSci','fSciT'],['fEz','fEzT']].map(q => `<div><dt>${t(q[0])}</dt><dd>${t(q[1])(D)}</dd></div>`).join('');
+  $('safeList').innerHTML = ''; t('safe').forEach(n => { const li = document.createElement('li'); if (n[0] !== 'w') li.className = n[0]; const sp = document.createElement('span'); sp.textContent = n[1]; li.appendChild(sp); $('safeList').appendChild(li); });
+  $('dataBody').innerHTML = t('data').map((p, i) => `<p class="fine" style="margin-top:${i ? 8 : 0}px">${p}</p>`).join('');
+  $('popx').setAttribute('aria-label', t('close')); $('zin').setAttribute('aria-label', '+'); $('zout').setAttribute('aria-label', '−');
+}
+function renderAll(){
+  buildStatic(); setLayers(); buildOverlay(); buildToggles(); buildRoutes(); selectRoute(sel, true);
+  if (popAt) openPop(popAt[0], popAt[1], {}); showAt(lastXY[0], lastXY[1]);
+}
+renderAll(); viewCrater(false); stage.classList.remove('anim'); showAt(CP[0], CP[1]);
+})();
+</script>
+</body>
+</html>
